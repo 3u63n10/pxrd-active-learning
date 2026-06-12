@@ -18,5 +18,13 @@ dependencies = [
   "scikit-learn>=1.4"
 ]
 
+[project.optional-dependencies]
+monitor = [
+  "pyserial>=3.5"
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pxrd_monitor = ["static/*.html"]

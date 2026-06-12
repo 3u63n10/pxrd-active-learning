@@ -18,7 +18,9 @@ external H-bridge drivers. Each motor uses:
 - two digital pins for direction;
 - a separate motor power supply sized for the motor current.
 
-Install the `arduino` folder as an Arduino library, then open
+The recommended controller is now an Arduino Mega 2560 because the complete
+sensor and encoder set exceeds the comfortable pin budget of an Uno. Install
+the `arduino` folder as an Arduino library, then open
 `examples/LagMotorDemo/LagMotorDemo.ino`.
 
 Do not power a motor directly from an Arduino output pin. Connect the Arduino
@@ -26,9 +28,11 @@ ground and motor-driver logic ground together. The emergency stop should also
 interrupt motor power in hardware; the software input shown in the example is
 only an additional stop request.
 
-The example assumes a normally closed emergency-stop contact between pin 12
-and ground. Pressing the stop, breaking its wire, or disconnecting it produces
-a `HIGH` input and stops all three software commands.
+The example assumes a normally closed emergency-stop contact between Mega pin
+`31` and ground; see
+[`../docs/arduino_wiring.md`](../docs/arduino_wiring.md). Pressing the stop,
+breaking its wire, or disconnecting it produces a `HIGH` input and stops all
+three software commands.
 
 ## Commands
 
@@ -59,3 +63,14 @@ Actual RPM depends on the motor, driver, supply voltage, load, and gearing.
 Reliable RPM control requires an encoder or tachometer and a feedback
 controller. Motor pin assignments, safe speed limits, and rotation directions
 must be confirmed on the physical prototype before unattended operation.
+
+## Telemetry and error log
+
+`src/ProcessTelemetry.h` writes newline-delimited JSON records over serial.
+The host monitor stores these records in SQLite. Open
+`examples/TelemetryProtocolDemo/TelemetryProtocolDemo.ino` for a compilable
+protocol example.
+
+The example values are synthetic placeholders. Replace them with readings from
+the selected ambient sensor, reactor RTD interface, motor-current sensors, and
+encoders after the electrical design is fixed.

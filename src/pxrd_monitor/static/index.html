@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PXRD LAG Process Monitor</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1118; --panel:#131d27; --line:#263746;
+      --text:#e8f0f6; --muted:#9fb0bf; --cyan:#4fd1c5; --orange:#ff9f43;
+      --red:#ff6b6b; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text);
+      font:15px/1.4 system-ui, sans-serif; }
+    header { padding:22px 5vw 14px; border-bottom:1px solid var(--line); }
+    h1 { margin:0; font-size:24px; } .sub { color:var(--muted); margin-top:4px; }
+    main { padding:20px 5vw 40px; display:grid; gap:16px; }
+    .toolbar,.cards,.grid { display:grid; gap:12px; }
+    .toolbar { grid-template-columns:minmax(220px,1fr) auto; align-items:end; }
+    .cards { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); }
+    .grid { grid-template-columns:2fr 1fr; }
+    .panel,.card { background:var(--panel); border:1px solid var(--line);
+      border-radius:10px; padding:15px; }
+    .label { color:var(--muted); font-size:12px; text-transform:uppercase;
+      letter-spacing:.08em; }
+    .value { font-size:28px; margin-top:5px; }
+    select,button { background:#0e1720; color:var(--text); border:1px solid var(--line);
+      border-radius:7px; padding:9px 11px; }
+    canvas { width:100%; height:280px; background:#0e1720; border-radius:7px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:8px; border-bottom:1px solid var(--line); text-align:left; }
+    th { color:var(--muted); font-weight:500; }
+    .events { max-height:340px; overflow:auto; }
+    .error { color:var(--red); } .warn { color:var(--orange); }
+    @media (max-width:800px) { .grid,.toolbar { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PXRD LAG Process Monitor</h1>
+    <div class="sub">Local run database and read-only process telemetry</div>
+  </header>
+  <main>
+    <div class="toolbar">
+      <label><span class="label">Run</span><br><select id="runSelect"></select></label>
+      <button id="refresh">Refresh now</button>
+    </div>
+    <section class="cards">
+      <div class="card"><div class="label">Status</div><div class="value" id="status">--</div></div>
+      <div class="card"><div class="label">Elapsed</div><div class="value" id="elapsed">--</div></div>
+      <div class="card"><div class="label">Ambient</div><div class="value" id="ambient">--</div></div>
+      <div class="card"><div class="label">Reactor</div><div class="value" id="reactor">--</div></div>
+    </section>
+    <section class="grid">
+      <div class="panel">
+        <div class="label">Temperature history</div>
+        <canvas id="chart" width="900" height="280"></canvas>
+      </div>
+      <div class="panel">
+        <div class="label">Latest motor data</div>
+        <table><thead><tr><th>Motor</th><th>PWM</th><th>A</th><th>RPM</th></tr></thead>
+          <tbody id="motors"></tbody></table>
+      </div>
+    </section>
+    <section class="panel events">
+      <div class="label">Events and errors</div>
+      <table><thead><tr><th>Time</th><th>Level</th><th>Source</th><th>Message</th></tr></thead>
+        <tbody id="events"></tbody></table>
+    </section>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    let runs = [];
+    async function getJSON(url) { const response = await fetch(url);
+      if (!response.ok) throw new Error(await response.text()); return response.json(); }
+    function escapeHTML(value) { return String(value).replace(/[&<>"']/g, character =>
+      ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[character])); }
+    function number(value, digits=1) { return value == null ? "--" : Number(value).toFixed(digits); }
+    function draw(samples) {
+      const canvas=$("chart"), ctx=canvas.getContext("2d"), w=canvas.width, h=canvas.height;
+      ctx.clearRect(0,0,w,h); ctx.strokeStyle="#263746"; ctx.lineWidth=1;
+      for(let i=1;i<5;i++){const y=i*h/5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+      if(!samples.length) return;
+      const values=samples.flatMap(s=>[s.ambient_c,s.reactor_c]).filter(v=>v!=null);
+      const min=Math.min(...values)-2, max=Math.max(...values)+2, span=Math.max(max-min,1);
+      const plot=(key,color)=>{ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();
+        samples.forEach((s,i)=>{if(s[key]==null)return;const x=i*w/Math.max(samples.length-1,1);
+          const y=h-(s[key]-min)*h/span;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();};
+      plot("ambient_c","#4fd1c5"); plot("reactor_c","#ff9f43");
+    }
+    async function loadRuns() {
+      runs=(await getJSON("/api/runs")).runs; const select=$("runSelect"), previous=select.value;
+      select.innerHTML=runs.map(r=>`<option value="${escapeHTML(r.id)}">${escapeHTML(r.name)} (${escapeHTML(r.status)})</option>`).join("");
+      if(runs.some(r=>r.id===previous)) select.value=previous;
+    }
+    async function refresh() {
+      await loadRuns(); const runId=$("runSelect").value;
+      if(!runId){$("status").textContent="No runs";return;}
+      const run=runs.find(r=>r.id===runId);
+      const [sampleData,eventData]=await Promise.all([
+        getJSON(`/api/runs/${encodeURIComponent(runId)}/samples?limit=500`),
+        getJSON(`/api/runs/${encodeURIComponent(runId)}/events?limit=100`)]);
+      const samples=sampleData.samples, latest=samples.at(-1);
+      $("status").textContent=run.status;
+      $("elapsed").textContent=latest?.uptime_ms==null?"--":`${(latest.uptime_ms/1000).toFixed(0)} s`;
+      $("ambient").textContent=latest?.ambient_c==null?"--":`${number(latest.ambient_c)} C`;
+      $("reactor").textContent=latest?.reactor_c==null?"--":`${number(latest.reactor_c)} C`;
+      $("motors").innerHTML=(latest?.motors||[]).map(m=>`<tr><td>${escapeHTML(m.name)}</td>
+        <td>${number(m.pwm_percent,0)}%</td><td>${number(m.current_a,2)}</td>
+        <td>${number(m.rpm,1)}</td></tr>`).join("");
+      $("events").innerHTML=eventData.events.map(e=>`<tr class="${e.level==="ERROR"||e.level==="CRITICAL"?"error":e.level==="WARNING"?"warn":""}">
+        <td>${new Date(e.recorded_at).toLocaleString()}</td><td>${escapeHTML(e.level)}</td>
+        <td>${escapeHTML(e.source)}</td><td>${escapeHTML(e.code)}: ${escapeHTML(e.message)}</td></tr>`).join("");
+      draw(samples);
+    }
+    $("refresh").onclick=refresh; $("runSelect").onchange=refresh;
+    refresh().catch(console.error); setInterval(()=>refresh().catch(console.error),3000);
+  </script>
+</body>
+</html>

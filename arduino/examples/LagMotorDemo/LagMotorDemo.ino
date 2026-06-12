@@ -1,14 +1,14 @@
 #include <TimedMotorControl.h>
 
-// Example pin assignment for an Arduino Uno and three external H-bridges.
+// Recommended pin assignment for an Arduino Mega and three external H-bridges.
 // Each motor requires one PWM input and two direction inputs.
-pxrd::TimedPwmMotor reservoirMotor(5, 2, 4);
-pxrd::TimedPwmMotor centralBarMotor(6, 7, 8);
-pxrd::TimedPwmMotor kneaderMotor(9, 10, 11);
+pxrd::TimedPwmMotor reservoirMotor(5, 22, 23);
+pxrd::TimedPwmMotor centralBarMotor(6, 24, 25);
+pxrd::TimedPwmMotor kneaderMotor(7, 26, 27);
 
 pxrd::LagMotorController motors(reservoirMotor, centralBarMotor, kneaderMotor);
 
-const uint8_t emergencyStopPin = 12;
+const uint8_t emergencyStopPin = 31;
 bool programStarted = false;
 
 void setup() {

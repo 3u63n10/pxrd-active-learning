@@ -29,6 +29,7 @@ The current prototype implements:
 - random-forest uncertainty sampling with spatial diversity for mapping;
 - global and boundary-region map-accuracy metrics;
 - an initial Arduino header for timed PWM control of three LAG-device motors;
+- a local SQLite run database and read-only process-monitoring website;
 - a reproducible demonstration figure and unit tests.
 
 ![Synthetic phase map and learning curves](docs/mapping_demo.png)
@@ -56,6 +57,8 @@ accuracy for both strategies.
 - [ ] Interface for PXRD-derived experimental records
 - [x] Initial Arduino motor speed and timing interface
 - [ ] Encoder-based closed-loop RPM control
+- [x] Run, telemetry, and error/event persistence in SQLite
+- [x] Local web dashboard with optional Tailscale access
 
 ## Repository layout
 
@@ -74,6 +77,25 @@ The initial firmware interface is documented in
 and kneader motors using independent signed PWM percentages and run times.
 This module is currently a hardware-interface prototype and has not yet been
 validated on the physical device.
+
+## Hardware and monitoring
+
+The proposed basic hardware, temperature/current sensing, safety chain, and
+torque-estimation limits are described in
+[`docs/hardware.md`](docs/hardware.md), with the detailed Arduino Mega wiring
+in [`docs/arduino_wiring.md`](docs/arduino_wiring.md). The local database, web dashboard,
+serial protocol, and private remote viewing with Tailscale Serve are described
+in [`docs/monitoring.md`](docs/monitoring.md).
+
+Start the monitor with:
+
+```bash
+python -m pxrd_monitor.server --db data/runs.sqlite --port 8000
+```
+
+![Local process monitor](docs/monitor_demo.png)
+
+The first version is intentionally read-only with respect to motor motion.
 
 ## Scope
 
