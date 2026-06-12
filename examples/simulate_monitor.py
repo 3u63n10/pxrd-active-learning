@@ -55,6 +55,24 @@ def main() -> None:
                     ],
                 }
             )
+            visual_activity = min(
+                1.0,
+                0.30
+                + 0.15 * math.sin(index / 5)
+                + 0.45 * math.exp(-((index - 55) / 9) ** 2),
+            )
+            database.add_image_sample(
+                {
+                    "run_id": run["id"],
+                    "uptime_ms": elapsed_ms,
+                    "activity_score": visual_activity,
+                    "changed_fraction": 0.02 + 0.05 * visual_activity,
+                    "mean_difference": 0.015 + 0.04 * visual_activity,
+                    "brightness": 0.48,
+                    "sharpness": 0.022,
+                    "is_active": visual_activity > 0.25,
+                }
+            )
             if index == 55:
                 database.add_event(
                     {

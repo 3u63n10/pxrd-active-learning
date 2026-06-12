@@ -30,6 +30,7 @@ The current prototype implements:
 - global and boundary-region map-accuracy metrics;
 - an initial Arduino header for timed PWM control of three LAG-device motors;
 - a local SQLite run database and read-only process-monitoring website;
+- `Image_Process_Control` for ROI-based visual activity metrics and events;
 - a reproducible demonstration figure and unit tests.
 
 ![Synthetic phase map and learning curves](docs/mapping_demo.png)
@@ -59,11 +60,13 @@ accuracy for both strategies.
 - [ ] Encoder-based closed-loop RPM control
 - [x] Run, telemetry, and error/event persistence in SQLite
 - [x] Local web dashboard with optional Tailscale access
+- [x] Image-based activity monitoring and no-activity warnings
 
 ## Repository layout
 
 ```text
 src/pxrd_active/       Core simulation and sequential-design code
+src/Image_Process_Control/  Camera activity analysis and capture runner
 examples/              Reproducible demonstrations
 tests/                 Unit tests
 docs/                  Generated figures and method notes
@@ -96,6 +99,13 @@ python -m pxrd_monitor.server --db data/runs.sqlite --port 8000
 ![Local process monitor](docs/monitor_demo.png)
 
 The first version is intentionally read-only with respect to motor motion.
+
+## Image activity analysis
+
+[`Image_Process_Control`](docs/image_process_control.md) measures visual
+activity inside a configurable reactor ROI and stores activity, brightness,
+focus, and transition metrics in the run database. It is a monitoring signal,
+not a safety interlock or chemical-phase classifier.
 
 ## Scope
 

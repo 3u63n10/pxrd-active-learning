@@ -76,10 +76,26 @@ class RunDatabase:
                     details_json TEXT NOT NULL DEFAULT '{}'
                 );
 
+                CREATE TABLE IF NOT EXISTS image_samples (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+                    recorded_at TEXT NOT NULL,
+                    uptime_ms INTEGER,
+                    activity_score REAL NOT NULL,
+                    changed_fraction REAL NOT NULL,
+                    mean_difference REAL NOT NULL,
+                    brightness REAL NOT NULL,
+                    sharpness REAL NOT NULL,
+                    is_active INTEGER NOT NULL,
+                    evidence_path TEXT
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_samples_run_time
                     ON samples(run_id, recorded_at);
                 CREATE INDEX IF NOT EXISTS idx_events_run_time
                     ON events(run_id, recorded_at);
+                CREATE INDEX IF NOT EXISTS idx_image_samples_run_time
+                    ON image_samples(run_id, recorded_at);
                 """
             )
 
@@ -212,6 +228,33 @@ class RunDatabase:
             )
         return int(cursor.lastrowid)
 
+    def add_image_sample(self, message: dict[str, Any]) -> int:
+        run_id = str(message["run_id"])
+        self.ensure_run(run_id)
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
+                """
+                INSERT INTO image_samples
+                    (run_id, recorded_at, uptime_ms, activity_score,
+                     changed_fraction, mean_difference, brightness, sharpness,
+                     is_active, evidence_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    message.get("recorded_at") or utc_now(),
+                    message.get("uptime_ms"),
+                    float(message["activity_score"]),
+                    float(message["changed_fraction"]),
+                    float(message["mean_difference"]),
+                    float(message["brightness"]),
+                    float(message["sharpness"]),
+                    int(bool(message["is_active"])),
+                    message.get("evidence_path"),
+                ),
+            )
+        return int(cursor.lastrowid)
+
     def ingest(self, message: dict[str, Any]) -> int:
         message_type = message.get("type")
         if message_type == "telemetry":
@@ -260,6 +303,25 @@ class RunDatabase:
             event["details"] = json.loads(event.pop("details_json"))
             events.append(event)
         return events
+
+    def get_image_samples(
+        self,
+        run_id: str,
+        limit: int = 1000,
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT * FROM image_samples
+                WHERE run_id = ?
+                ORDER BY id DESC LIMIT ?
+                """,
+                (run_id, limit),
+            ).fetchall()
+        samples = [dict(row) for row in reversed(rows)]
+        for sample in samples:
+            sample["is_active"] = bool(sample["is_active"])
+        return samples
 
     @staticmethod
     def _decode_run(row: sqlite3.Row) -> dict[str, Any]:

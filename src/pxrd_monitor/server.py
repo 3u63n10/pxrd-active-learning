@@ -16,7 +16,7 @@ from .serial_reader import SerialReader
 
 
 STATIC_DIR = Path(__file__).with_name("static")
-RUN_ACTION = re.compile(r"^/api/runs/([^/]+)/(finish|samples|events)$")
+RUN_ACTION = re.compile(r"^/api/runs/([^/]+)/(finish|samples|events|images)$")
 
 
 class MonitorHandler(BaseHTTPRequestHandler):
@@ -78,6 +78,14 @@ class MonitorHandler(BaseHTTPRequestHandler):
                     {"run_id": run_id, "events": self.database.get_events(run_id, limit)}
                 )
                 return
+            if action == "images":
+                self._send_json(
+                    {
+                        "run_id": run_id,
+                        "images": self.database.get_image_samples(run_id, limit),
+                    }
+                )
+                return
 
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -102,6 +110,10 @@ class MonitorHandler(BaseHTTPRequestHandler):
                 payload["type"] = "event"
                 identifier = self.database.add_event(payload)
                 self._send_json({"event_id": identifier}, HTTPStatus.CREATED)
+                return
+            if self.path == "/api/images":
+                identifier = self.database.add_image_sample(payload)
+                self._send_json({"image_sample_id": identifier}, HTTPStatus.CREATED)
                 return
 
             match = RUN_ACTION.match(self.path)

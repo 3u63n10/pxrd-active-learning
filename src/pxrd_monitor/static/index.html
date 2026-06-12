@@ -49,6 +49,11 @@
       <div class="card"><div class="label">Elapsed</div><div class="value" id="elapsed">--</div></div>
       <div class="card"><div class="label">Ambient</div><div class="value" id="ambient">--</div></div>
       <div class="card"><div class="label">Reactor</div><div class="value" id="reactor">--</div></div>
+      <div class="card"><div class="label">Visual activity</div><div class="value" id="activity">--</div></div>
+    </section>
+    <section class="panel">
+      <div class="label">Image_Process_Control activity history</div>
+      <canvas id="activityChart" width="1200" height="220"></canvas>
     </section>
     <section class="grid">
       <div class="panel">
@@ -87,6 +92,16 @@
           const y=h-(s[key]-min)*h/span;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();};
       plot("ambient_c","#4fd1c5"); plot("reactor_c","#ff9f43");
     }
+    function drawActivity(samples) {
+      const canvas=$("activityChart"), ctx=canvas.getContext("2d"), w=canvas.width, h=canvas.height;
+      ctx.clearRect(0,0,w,h); ctx.strokeStyle="#263746"; ctx.lineWidth=1;
+      for(let i=1;i<4;i++){const y=i*h/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+      if(!samples.length) return;
+      ctx.strokeStyle="#9b8cff"; ctx.lineWidth=3; ctx.beginPath();
+      samples.forEach((s,i)=>{const x=i*w/Math.max(samples.length-1,1);
+        const y=h-Math.max(0,Math.min(1,s.activity_score))*h;
+        i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.stroke();
+    }
     async function loadRuns() {
       runs=(await getJSON("/api/runs")).runs; const select=$("runSelect"), previous=select.value;
       select.innerHTML=runs.map(r=>`<option value="${escapeHTML(r.id)}">${escapeHTML(r.name)} (${escapeHTML(r.status)})</option>`).join("");
@@ -96,14 +111,18 @@
       await loadRuns(); const runId=$("runSelect").value;
       if(!runId){$("status").textContent="No runs";return;}
       const run=runs.find(r=>r.id===runId);
-      const [sampleData,eventData]=await Promise.all([
+      const [sampleData,eventData,imageData]=await Promise.all([
         getJSON(`/api/runs/${encodeURIComponent(runId)}/samples?limit=500`),
-        getJSON(`/api/runs/${encodeURIComponent(runId)}/events?limit=100`)]);
+        getJSON(`/api/runs/${encodeURIComponent(runId)}/events?limit=100`),
+        getJSON(`/api/runs/${encodeURIComponent(runId)}/images?limit=500`)]);
       const samples=sampleData.samples, latest=samples.at(-1);
+      const imageSamples=imageData.images, latestImage=imageSamples.at(-1);
       $("status").textContent=run.status;
       $("elapsed").textContent=latest?.uptime_ms==null?"--":`${(latest.uptime_ms/1000).toFixed(0)} s`;
       $("ambient").textContent=latest?.ambient_c==null?"--":`${number(latest.ambient_c)} C`;
       $("reactor").textContent=latest?.reactor_c==null?"--":`${number(latest.reactor_c)} C`;
+      $("activity").textContent=latestImage==null?"--":
+        `${latestImage.is_active?"active":"idle"} ${number(latestImage.activity_score,2)}`;
       $("motors").innerHTML=(latest?.motors||[]).map(m=>`<tr><td>${escapeHTML(m.name)}</td>
         <td>${number(m.pwm_percent,0)}%</td><td>${number(m.current_a,2)}</td>
         <td>${number(m.rpm,1)}</td></tr>`).join("");
@@ -111,6 +130,7 @@
         <td>${new Date(e.recorded_at).toLocaleString()}</td><td>${escapeHTML(e.level)}</td>
         <td>${escapeHTML(e.source)}</td><td>${escapeHTML(e.code)}: ${escapeHTML(e.message)}</td></tr>`).join("");
       draw(samples);
+      drawActivity(imageSamples);
     }
     $("refresh").onclick=refresh; $("runSelect").onchange=refresh;
     refresh().catch(console.error); setInterval(()=>refresh().catch(console.error),3000);

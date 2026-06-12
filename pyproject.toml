@@ -22,6 +22,9 @@ dependencies = [
 monitor = [
   "pyserial>=3.5"
 ]
+image = [
+  "opencv-python>=4.10"
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

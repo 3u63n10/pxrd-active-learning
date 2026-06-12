@@ -1,13 +1,17 @@
 # Local monitoring and remote access
 
 The monitoring service stores runs, temperature, motor measurements, and
-events in SQLite. It uses only the Python standard library for the database,
-HTTP API, and dashboard. `pyserial` is optional for live Arduino ingestion.
+events in SQLite. `Image_Process_Control` can add visual activity, brightness,
+and sharpness metrics to the same run. The service uses only the Python
+standard library for the database, HTTP API, and dashboard. `pyserial` is
+optional for live Arduino ingestion.
 
 ## Data flow
 
 ```text
-Arduino -> USB serial JSONL -> local monitor -> SQLite -> browser
+Arduino -> USB serial JSONL ----\
+                                -> local monitor -> SQLite -> browser
+Camera -> Image_Process_Control-/
 ```
 
 The local computer adds UTC timestamps when messages are received. Arduino

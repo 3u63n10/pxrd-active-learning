@@ -49,6 +49,25 @@ class RunDatabaseTests(unittest.TestCase):
         self.assertEqual(samples[0]["motors"][0]["name"], "kneader")
         self.assertEqual(events[0]["code"], "HIGH_LOAD")
 
+    def test_image_sample_round_trip(self) -> None:
+        run = self.database.create_run("image-test", run_id="run-image")
+        self.database.add_image_sample(
+            {
+                "run_id": run["id"],
+                "uptime_ms": 1500,
+                "activity_score": 0.72,
+                "changed_fraction": 0.08,
+                "mean_difference": 0.05,
+                "brightness": 0.44,
+                "sharpness": 0.02,
+                "is_active": True,
+            }
+        )
+        samples = self.database.get_image_samples(run["id"])
+        self.assertEqual(len(samples), 1)
+        self.assertTrue(samples[0]["is_active"])
+        self.assertAlmostEqual(samples[0]["activity_score"], 0.72)
+
     def test_finish_run(self) -> None:
         self.database.create_run("test", run_id="run-finish")
         finished = self.database.finish_run("run-finish")
