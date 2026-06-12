@@ -28,6 +28,7 @@ The current prototype implements:
 - random sequential sampling as a baseline;
 - random-forest uncertainty sampling with spatial diversity for mapping;
 - global and boundary-region map-accuracy metrics;
+- an initial Arduino header for timed PWM control of three LAG-device motors;
 - a reproducible demonstration figure and unit tests.
 
 ![Synthetic phase map and learning curves](docs/mapping_demo.png)
@@ -53,6 +54,8 @@ accuracy for both strategies.
 - [ ] Bayesian optimization for purification mode
 - [ ] Robustness benchmarks against observation noise
 - [ ] Interface for PXRD-derived experimental records
+- [x] Initial Arduino motor speed and timing interface
+- [ ] Encoder-based closed-loop RPM control
 
 ## Repository layout
 
@@ -61,7 +64,16 @@ src/pxrd_active/       Core simulation and sequential-design code
 examples/              Reproducible demonstrations
 tests/                 Unit tests
 docs/                  Generated figures and method notes
+arduino/               Motor-control header, example, and hardware notes
 ```
+
+## Arduino motor control
+
+The initial firmware interface is documented in
+[`arduino/README.md`](arduino/README.md). It controls reservoir, central-bar,
+and kneader motors using independent signed PWM percentages and run times.
+This module is currently a hardware-interface prototype and has not yet been
+validated on the physical device.
 
 ## Scope
 
